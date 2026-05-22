@@ -1,0 +1,11 @@
+# Pebble build output
+build/
+.claude
+.lock-waf_*
+
+# macOS
+.DS_Store
+
+# Resource files
+screenshot*.png
+*.ttf

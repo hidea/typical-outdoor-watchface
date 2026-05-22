@@ -1,0 +1,56 @@
+{
+  "name": "emery-watchface",
+  "author": "hidea",
+  "version": "1.0.0",
+  "keywords": [
+    "pebble-app"
+  ],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Typical Outdoor",
+    "uuid": "ebdc1858-c1b3-4642-a849-e3ab71a9b502",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "capabilities": [
+      "health",
+      "location"
+    ],
+    "messageKeys": [
+      "SUNRISE_TODAY",
+      "SUNSET_TODAY",
+      "SUNRISE_TOMORROW",
+      "SUNSET_TOMORROW"
+    ],
+    "resources": {
+      "media": [
+        {
+          "type": "font",
+          "name": "RUSSO_ONE_70",
+          "file": "RussoOne.ttf"
+        },
+        {
+          "type": "font",
+          "name": "RUSSO_ONE_62",
+          "file": "RussoOne.ttf"
+        },
+        {
+          "type": "font",
+          "name": "RUSSO_ONE_28",
+          "file": "RussoOne.ttf"
+        },
+        {
+          "type": "font",
+          "name": "RUSSO_ONE_20",
+          "file": "RussoOne.ttf"
+        }
+      ]
+    }
+  }
+}
