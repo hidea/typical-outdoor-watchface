@@ -125,14 +125,14 @@ static void time_update_proc(Layer *layer, GContext *ctx) {
 
   graphics_context_set_text_color(ctx, GColorWhite);
   graphics_draw_text(ctx, s_time_buf, f,
-      GRect(0, 0, b.size.w, b.size.h - 10),
+      GRect(-10, 0, b.size.w + 20, b.size.h - 10),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
   if (!s_is_24h && s_ampm_buf[0]) {
-    GFont fa = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+    GFont fa = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
     graphics_context_set_text_color(ctx, GColorWhite);
     graphics_draw_text(ctx, s_ampm_buf, fa,
-        GRect(4, b.size.h - 30, b.size.w, 22),
+        GRect(2, b.size.h - 44, b.size.w, 22),
         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   }
 }
