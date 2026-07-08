@@ -202,7 +202,7 @@ static void top_update_proc(Layer *layer, GContext *ctx) {
   gpath_draw_filled(ctx, s_heart_path);
 
   // HR number (Russo One 28)
-  graphics_context_set_text_color(ctx, colors.secondary);
+  graphics_context_set_text_color(ctx, colors.primary);
   graphics_draw_text(ctx, s_hr_buf, s_font_num,
       GRect(124, (b.size.h - 34) / 2, 48, 34),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
@@ -250,7 +250,7 @@ static void bot_update_proc(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, GRect(bar_x + 4, bar_y + 4, fw, bar_h - 8), 0, GCornerNone);
 
   // Row B: percentage text (Russo One 28)
-  graphics_context_set_text_color(ctx, colors.secondary);
+  graphics_context_set_text_color(ctx, colors.primary);
   graphics_draw_text(ctx, s_bat_buf, s_font_date,
       GRect(4, row_h + 4, 70, row_h),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
