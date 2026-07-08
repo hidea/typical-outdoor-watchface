@@ -1,7 +1,7 @@
 {
   "name": "typical-outdoor-watchface",
   "author": "hidea",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "keywords": [
     "pebble-app"
   ],
@@ -20,14 +20,16 @@
     },
     "capabilities": [
       "health",
-      "location"
+      "location",
+      "configurable"
     ],
-    "messageKeys": [
-      "SUNRISE_TODAY",
-      "SUNSET_TODAY",
-      "SUNRISE_TOMORROW",
-      "SUNSET_TOMORROW"
-    ],
+    "messageKeys": {
+      "SUNRISE_TODAY": 10000,
+      "SUNSET_TODAY": 10001,
+      "SUNRISE_TOMORROW": 10002,
+      "SUNSET_TOMORROW": 10003,
+      "COLOR_THEME": 10004
+    },
     "resources": {
       "media": [
         {

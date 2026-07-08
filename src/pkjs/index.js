@@ -75,11 +75,87 @@ function getLocation() {
   );
 }
 
+var THEME_KEY = 'colorTheme';
+var DEFAULT_THEME = 0;
+
+var THEMES = [
+  { value: 0, label: 'Graphite' },
+  { value: 1, label: 'Blueberry' },
+  { value: 2, label: 'Grape' },
+  { value: 3, label: 'Tangerine' },
+  { value: 4, label: 'Lime' },
+  { value: 5, label: 'Strawberry' }
+];
+
+function getTheme() {
+  var saved = parseInt(localStorage.getItem(THEME_KEY), 10);
+  return isNaN(saved) ? DEFAULT_THEME : saved;
+}
+
+function sendTheme() {
+  Pebble.sendAppMessage({
+    'COLOR_THEME': getTheme()
+  }, function() {
+    console.log('Color theme sent: ' + getTheme());
+  }, function(e) {
+    console.log('send color theme error: ' + JSON.stringify(e));
+  });
+}
+
+function configurationHtml() {
+  var current = getTheme();
+  var options = THEMES.map(function(theme) {
+    var selected = theme.value === current ? ' selected' : '';
+    return '<option value="' + theme.value + '"' + selected + '>' + theme.label + '</option>';
+  }).join('');
+
+  return '<!doctype html>' +
+    '<html><head><meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<title>Typical Outdoor</title>' +
+    '<style>' +
+    'body{margin:0;background:#111;color:#eee;font-family:-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif}' +
+    'main{padding:24px;max-width:480px;margin:0 auto}' +
+    'h1{font-size:22px;margin:0 0 24px}' +
+    'label{display:block;font-size:13px;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em}' +
+    'select,button{box-sizing:border-box;width:100%;font-size:18px;border-radius:8px;border:1px solid #444;padding:12px;background:#1f1f1f;color:#fff}' +
+    'button{margin-top:20px;background:#00aaff;border-color:#00aaff;color:#001018;font-weight:700}' +
+    '</style></head><body><main>' +
+    '<h1>Typical Outdoor</h1>' +
+    '<label for="theme">Color Theme</label>' +
+    '<select id="theme">' + options + '</select>' +
+    '<button id="save">Save</button>' +
+    '<script>' +
+    'document.getElementById("save").addEventListener("click",function(){' +
+    'var theme=document.getElementById("theme").value;' +
+    'document.location="pebblejs://close#"+encodeURIComponent(JSON.stringify({colorTheme:parseInt(theme,10)}));' +
+    '});' +
+    '</script></main></body></html>';
+}
+
 Pebble.addEventListener('ready', function() {
   getLocation();
+  sendTheme();
 });
 
 // Watch requests refresh at midnight
 Pebble.addEventListener('appmessage', function() {
   getLocation();
+});
+
+Pebble.addEventListener('showConfiguration', function() {
+  Pebble.openURL('data:text/html,' + encodeURIComponent(configurationHtml()));
+});
+
+Pebble.addEventListener('webviewclosed', function(e) {
+  if (!e || !e.response) return;
+
+  try {
+    var settings = JSON.parse(decodeURIComponent(e.response));
+    if (typeof settings.colorTheme === 'number') {
+      localStorage.setItem(THEME_KEY, settings.colorTheme);
+      sendTheme();
+    }
+  } catch (err) {
+    console.log('Config parse error: ' + err.message);
+  }
 });

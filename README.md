@@ -11,6 +11,7 @@ A clean, information-dense watchface for the Pebble Emery (200×228).
 - **Heart rate** — live BPM from Pebble Health, shown in a rounded box
 - **Battery** — color-coded bar (green / yellow / red) with percentage
 - **Sunrise & sunset** — calculated from your GPS location via NOAA algorithm, refreshed at midnight
+- **Color themes** — Graphite plus iMac-inspired candy colors: Blueberry, Grape, Tangerine, Lime, and Strawberry
 
 ## Platform
 

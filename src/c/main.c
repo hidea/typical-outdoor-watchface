@@ -14,8 +14,20 @@
 //        │  ══════╢    ↓ 18:43               │  h=36            (row B)
 //  Y=228 └────────────────────────────────────┘
 
-#define SETTINGS_KEY 1
+#define SUN_SETTINGS_KEY 1
+#define THEME_SETTINGS_KEY 2
+#define APP_KEY_COLOR_THEME 10004
 #define FACE_PADDING 8  // inner padding between outer border and content
+
+typedef enum {
+  COLOR_THEME_GRAPHITE = 0,
+  COLOR_THEME_BLUEBERRY,
+  COLOR_THEME_GRAPE,
+  COLOR_THEME_TANGERINE,
+  COLOR_THEME_LIME,
+  COLOR_THEME_STRAWBERRY,
+  COLOR_THEME_COUNT
+} ColorThemeId;
 
 typedef struct {
   uint16_t sunrise_today;
@@ -23,6 +35,13 @@ typedef struct {
   uint16_t sunrise_tomorrow;
   uint16_t sunset_tomorrow;
 } SunTimes;
+
+typedef struct {
+  GColor background;
+  GColor primary;
+  GColor secondary;
+  GColor accent;
+} ColorTheme;
 
 // ── Globals ───────────────────────────────────────────────────────────────────
 static Window *s_window;
@@ -40,6 +59,7 @@ static int      s_battery_level = 100;
 static int      s_heart_rate    = 0;
 static bool     s_is_24h        = true;
 static SunTimes s_sun_times;
+static ColorThemeId s_color_theme_id = COLOR_THEME_GRAPHITE;
 
 static char s_time_buf[8];
 static char s_ampm_buf[3];
@@ -58,6 +78,45 @@ static const GPathInfo HEART_PATH_INFO = {
   }
 };
 
+static const ColorTheme COLOR_THEMES[COLOR_THEME_COUNT] = {
+  [COLOR_THEME_GRAPHITE] = {
+    .background = GColorBlack,
+    .primary = GColorWhite,
+    .secondary = GColorLightGray,
+    .accent = GColorWhite,
+  },
+  [COLOR_THEME_BLUEBERRY] = {
+    .background = GColorBlack,
+    .primary = GColorFromHEX(0x00AAFF),
+    .secondary = GColorWhite,
+    .accent = GColorFromHEX(0x55FFFF),
+  },
+  [COLOR_THEME_GRAPE] = {
+    .background = GColorBlack,
+    .primary = GColorFromHEX(0xAA00FF),
+    .secondary = GColorWhite,
+    .accent = GColorFromHEX(0xFF55FF),
+  },
+  [COLOR_THEME_TANGERINE] = {
+    .background = GColorBlack,
+    .primary = GColorFromHEX(0xFFAA00),
+    .secondary = GColorWhite,
+    .accent = GColorFromHEX(0xFFFF55),
+  },
+  [COLOR_THEME_LIME] = {
+    .background = GColorBlack,
+    .primary = GColorFromHEX(0xAAFF00),
+    .secondary = GColorWhite,
+    .accent = GColorFromHEX(0x55FF00),
+  },
+  [COLOR_THEME_STRAWBERRY] = {
+    .background = GColorBlack,
+    .primary = GColorFromHEX(0xFF0055),
+    .secondary = GColorWhite,
+    .accent = GColorFromHEX(0xFF55AA),
+  },
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 static void minutes_to_str(uint16_t min, char *buf, size_t sz) {
   if (min == 0) {
@@ -70,6 +129,36 @@ static void minutes_to_str(uint16_t min, char *buf, size_t sz) {
 static void update_sun_buffers(void) {
   minutes_to_str(s_sun_times.sunrise_today, s_rise_today_buf, sizeof(s_rise_today_buf));
   minutes_to_str(s_sun_times.sunset_today,  s_set_today_buf,  sizeof(s_set_today_buf));
+}
+
+static bool is_valid_theme_id(int theme_id) {
+  return theme_id >= 0 && theme_id < COLOR_THEME_COUNT;
+}
+
+static ColorTheme theme(void) {
+  if (!is_valid_theme_id((int)s_color_theme_id)) {
+    return COLOR_THEMES[COLOR_THEME_GRAPHITE];
+  }
+  return COLOR_THEMES[s_color_theme_id];
+}
+
+static void mark_all_layers_dirty(void) {
+  if (s_top_layer) layer_mark_dirty(s_top_layer);
+  if (s_time_layer) layer_mark_dirty(s_time_layer);
+  if (s_bot_layer) layer_mark_dirty(s_bot_layer);
+  if (s_border_layer) layer_mark_dirty(s_border_layer);
+}
+
+static void apply_color_theme(int theme_id) {
+  if (!is_valid_theme_id(theme_id)) {
+    theme_id = (int)COLOR_THEME_GRAPHITE;
+  }
+  s_color_theme_id = (ColorThemeId)theme_id;
+  persist_write_int(THEME_SETTINGS_KEY, s_color_theme_id);
+  if (s_window) {
+    window_set_background_color(s_window, theme().background);
+  }
+  mark_all_layers_dirty();
 }
 
 // Draw a solid triangle arrow at (x,y), pointing up or down. 9px wide, 5px tall.
@@ -88,9 +177,10 @@ static void draw_arrow(GContext *ctx, int x, int y, bool up) {
 static void top_update_proc(Layer *layer, GContext *ctx) {
   GRect b = layer_get_bounds(layer);
   int line_h = b.size.h / 2;
+  ColorTheme colors = theme();
 
   // Date line 1: m/d
-  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_context_set_text_color(ctx, colors.primary);
   graphics_draw_text(ctx, s_date_buf, s_font_num,
       GRect(6, 0, 80, line_h),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
@@ -101,18 +191,18 @@ static void top_update_proc(Layer *layer, GContext *ctx) {
       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
   // Box around heart+HR
-  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_context_set_stroke_color(ctx, colors.primary);
   graphics_context_set_stroke_width(ctx, 2);
   graphics_draw_round_rect(ctx, GRect(90, 4, 90, 50), 8);
 
   // Heart icon
   int hr_center_y = b.size.h / 2;
   gpath_move_to(s_heart_path, GPoint(106, hr_center_y + 1));
-  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_context_set_fill_color(ctx, colors.accent);
   gpath_draw_filled(ctx, s_heart_path);
 
   // HR number (Russo One 28)
-  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_context_set_text_color(ctx, colors.secondary);
   graphics_draw_text(ctx, s_hr_buf, s_font_num,
       GRect(124, (b.size.h - 34) / 2, 48, 34),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
@@ -122,15 +212,16 @@ static void top_update_proc(Layer *layer, GContext *ctx) {
 static void time_update_proc(Layer *layer, GContext *ctx) {
   GRect b = layer_get_bounds(layer);
   GFont f = s_font_time ? s_font_time : fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
+  ColorTheme colors = theme();
 
-  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_context_set_text_color(ctx, colors.primary);
   graphics_draw_text(ctx, s_time_buf, f,
       GRect(-10, 0, b.size.w + 20, b.size.h - 10),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
   if (!s_is_24h && s_ampm_buf[0]) {
     GFont fa = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-    graphics_context_set_text_color(ctx, GColorWhite);
+    graphics_context_set_text_color(ctx, colors.secondary);
     graphics_draw_text(ctx, s_ampm_buf, fa,
         GRect(2, b.size.h - 44, b.size.w, 22),
         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
@@ -141,14 +232,15 @@ static void time_update_proc(Layer *layer, GContext *ctx) {
 static void bot_update_proc(Layer *layer, GContext *ctx) {
   GRect b = layer_get_bounds(layer);
   int row_h = b.size.h / 2;
+  ColorTheme colors = theme();
 
   // ── Battery column (left) ──
   // Row A: horizontal bar
   int bar_x = 8, bar_y = 8, bar_w = 58, bar_h = 26;
-  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_context_set_stroke_color(ctx, colors.primary);
   graphics_context_set_stroke_width(ctx, 2);
   graphics_draw_round_rect(ctx, GRect(bar_x, bar_y, bar_w, bar_h), 2);
-  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_context_set_fill_color(ctx, colors.primary);
   graphics_fill_rect(ctx, GRect(bar_x + bar_w, bar_y + bar_h / 2 - 3, 4, 6), 1, GCornersRight);
   GColor fill = (s_battery_level <= 20) ? GColorRed :
                 (s_battery_level <= 40) ? GColorChromeYellow : GColorGreen;
@@ -158,7 +250,7 @@ static void bot_update_proc(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, GRect(bar_x + 4, bar_y + 4, fw, bar_h - 8), 0, GCornerNone);
 
   // Row B: percentage text (Russo One 28)
-  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_context_set_text_color(ctx, colors.secondary);
   graphics_draw_text(ctx, s_bat_buf, s_font_date,
       GRect(4, row_h + 4, 70, row_h),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
@@ -169,18 +261,18 @@ static void bot_update_proc(Layer *layer, GContext *ctx) {
   int text_w = b.size.w - text_x - 4;
 
   // Sunrise (row A)
-  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_context_set_stroke_color(ctx, colors.accent);
   graphics_context_set_stroke_width(ctx, 1);
   draw_arrow(ctx, sun_x, row_h / 2, true);
-  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_context_set_text_color(ctx, colors.primary);
   graphics_draw_text(ctx, s_rise_today_buf, s_font_num,
       GRect(text_x, 0, text_w, row_h),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
 
   // Sunset (row B)
-  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_context_set_stroke_color(ctx, colors.accent);
   draw_arrow(ctx, sun_x, row_h + row_h / 2, false);
-  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_context_set_text_color(ctx, colors.primary);
   graphics_draw_text(ctx, s_set_today_buf, s_font_num,
       GRect(text_x, row_h, text_w, row_h),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
@@ -189,7 +281,7 @@ static void bot_update_proc(Layer *layer, GContext *ctx) {
 // BORDER: full-screen outer frame
 static void border_update_proc(Layer *layer, GContext *ctx) {
   GRect b = layer_get_bounds(layer);
-  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_context_set_stroke_color(ctx, theme().primary);
   graphics_context_set_stroke_width(ctx, 4);
   graphics_draw_round_rect(ctx, GRect(1, 1, b.size.w - 2, b.size.h - 2), 16);
 }
@@ -229,9 +321,13 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   if (t) { s_sun_times.sunrise_tomorrow = (uint16_t)t->value->int32; updated = true; }
   t = dict_find(iterator, MESSAGE_KEY_SUNSET_TOMORROW);
   if (t) { s_sun_times.sunset_tomorrow  = (uint16_t)t->value->int32; updated = true; }
+  t = dict_find(iterator, APP_KEY_COLOR_THEME);
+  if (t) {
+    apply_color_theme(t->value->int32);
+  }
 
   if (updated) {
-    persist_write_data(SETTINGS_KEY, &s_sun_times, sizeof(SunTimes));
+    persist_write_data(SUN_SETTINGS_KEY, &s_sun_times, sizeof(SunTimes));
     update_sun_buffers();
     layer_mark_dirty(s_bot_layer);
   }
@@ -277,7 +373,10 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 static void main_window_load(Window *window) {
   Layer *wl = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(wl);
-  window_set_background_color(window, GColorBlack);
+  if (persist_exists(THEME_SETTINGS_KEY)) {
+    s_color_theme_id = (ColorThemeId)persist_read_int(THEME_SETTINGS_KEY);
+  }
+  window_set_background_color(window, theme().background);
 
   s_font_time = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_RUSSO_ONE_70));
   s_font_num  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_RUSSO_ONE_28));
@@ -308,8 +407,8 @@ static void main_window_load(Window *window) {
   layer_add_child(wl, s_border_layer);  // drawn on top
 
   // Initial values
-  if (persist_exists(SETTINGS_KEY)) {
-    persist_read_data(SETTINGS_KEY, &s_sun_times, sizeof(SunTimes));
+  if (persist_exists(SUN_SETTINGS_KEY)) {
+    persist_read_data(SUN_SETTINGS_KEY, &s_sun_times, sizeof(SunTimes));
   }
   update_sun_buffers();
   snprintf(s_hr_buf,  sizeof(s_hr_buf),  "--");
