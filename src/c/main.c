@@ -16,7 +16,9 @@
 
 #define SUN_SETTINGS_KEY 1
 #define THEME_SETTINGS_KEY 2
+#define REVERSE_SETTINGS_KEY 3
 #define APP_KEY_COLOR_THEME 10004
+#define APP_KEY_COLOR_REVERSE 10005
 #define FACE_PADDING 8  // inner padding between outer border and content
 
 typedef enum {
@@ -58,6 +60,7 @@ static GPath  *s_heart_path;
 static int      s_battery_level = 100;
 static int      s_heart_rate    = 0;
 static bool     s_is_24h        = true;
+static bool     s_is_reversed   = false;
 static SunTimes s_sun_times;
 static ColorThemeId s_color_theme_id = COLOR_THEME_GRAPHITE;
 
@@ -139,7 +142,15 @@ static ColorTheme theme(void) {
   if (!is_valid_theme_id((int)s_color_theme_id)) {
     return COLOR_THEMES[COLOR_THEME_GRAPHITE];
   }
-  return COLOR_THEMES[s_color_theme_id];
+  ColorTheme colors = COLOR_THEMES[s_color_theme_id];
+  if (s_is_reversed) {
+    GColor background = colors.background;
+    colors.background = colors.primary;
+    colors.primary = background;
+    colors.secondary = background;
+    colors.accent = background;
+  }
+  return colors;
 }
 
 static void mark_all_layers_dirty(void) {
@@ -155,6 +166,15 @@ static void apply_color_theme(int theme_id) {
   }
   s_color_theme_id = (ColorThemeId)theme_id;
   persist_write_int(THEME_SETTINGS_KEY, s_color_theme_id);
+  if (s_window) {
+    window_set_background_color(s_window, theme().background);
+  }
+  mark_all_layers_dirty();
+}
+
+static void apply_reverse_setting(bool is_reversed) {
+  s_is_reversed = is_reversed;
+  persist_write_bool(REVERSE_SETTINGS_KEY, s_is_reversed);
   if (s_window) {
     window_set_background_color(s_window, theme().background);
   }
@@ -256,7 +276,7 @@ static void bot_update_proc(Layer *layer, GContext *ctx) {
       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
   // ── Sun column (right) ──
-  int sun_x = 95;
+  int sun_x = 88;
   int text_x = sun_x + 8;
   int text_w = b.size.w - text_x - 4;
 
@@ -325,6 +345,10 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   if (t) {
     apply_color_theme(t->value->int32);
   }
+  t = dict_find(iterator, APP_KEY_COLOR_REVERSE);
+  if (t) {
+    apply_reverse_setting(t->value->int32 != 0);
+  }
 
   if (updated) {
     persist_write_data(SUN_SETTINGS_KEY, &s_sun_times, sizeof(SunTimes));
@@ -375,6 +399,9 @@ static void main_window_load(Window *window) {
   GRect bounds = layer_get_bounds(wl);
   if (persist_exists(THEME_SETTINGS_KEY)) {
     s_color_theme_id = (ColorThemeId)persist_read_int(THEME_SETTINGS_KEY);
+  }
+  if (persist_exists(REVERSE_SETTINGS_KEY)) {
+    s_is_reversed = persist_read_bool(REVERSE_SETTINGS_KEY);
   }
   window_set_background_color(window, theme().background);
 

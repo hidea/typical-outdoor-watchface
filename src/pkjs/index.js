@@ -76,6 +76,7 @@ function getLocation() {
 }
 
 var THEME_KEY = 'colorTheme';
+var REVERSE_KEY = 'colorReverse';
 var DEFAULT_THEME = 0;
 
 var THEMES = [
@@ -92,11 +93,16 @@ function getTheme() {
   return isNaN(saved) ? DEFAULT_THEME : saved;
 }
 
+function getReverse() {
+  return localStorage.getItem(REVERSE_KEY) === '1';
+}
+
 function sendTheme() {
   Pebble.sendAppMessage({
-    'COLOR_THEME': getTheme()
+    'COLOR_THEME': getTheme(),
+    'COLOR_REVERSE': getReverse() ? 1 : 0
   }, function() {
-    console.log('Color theme sent: ' + getTheme());
+    console.log('Color theme sent: ' + getTheme() + ', reverse=' + getReverse());
   }, function(e) {
     console.log('send color theme error: ' + JSON.stringify(e));
   });
@@ -104,6 +110,7 @@ function sendTheme() {
 
 function configurationHtml() {
   var current = getTheme();
+  var reverseChecked = getReverse() ? ' checked' : '';
   var options = THEMES.map(function(theme) {
     var selected = theme.value === current ? ' selected' : '';
     return '<option value="' + theme.value + '"' + selected + '>' + theme.label + '</option>';
@@ -118,16 +125,20 @@ function configurationHtml() {
     'h1{font-size:22px;margin:0 0 24px}' +
     'label{display:block;font-size:13px;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em}' +
     'select,button{box-sizing:border-box;width:100%;font-size:18px;border-radius:8px;border:1px solid #444;padding:12px;background:#1f1f1f;color:#fff}' +
+    '.checkbox{display:flex;align-items:center;gap:10px;margin-top:18px;color:#eee;font-size:18px}' +
+    '.checkbox input{width:22px;height:22px}' +
     'button{margin-top:20px;background:#00aaff;border-color:#00aaff;color:#001018;font-weight:700}' +
     '</style></head><body><main>' +
     '<h1>Typical Outdoor</h1>' +
     '<label for="theme">Color Theme</label>' +
     '<select id="theme">' + options + '</select>' +
+    '<label class="checkbox"><input id="reverse" type="checkbox"' + reverseChecked + '>Reverse</label>' +
     '<button id="save">Save</button>' +
     '<script>' +
     'document.getElementById("save").addEventListener("click",function(){' +
     'var theme=document.getElementById("theme").value;' +
-    'document.location="pebblejs://close#"+encodeURIComponent(JSON.stringify({colorTheme:parseInt(theme,10)}));' +
+    'var reverse=document.getElementById("reverse").checked;' +
+    'document.location="pebblejs://close#"+encodeURIComponent(JSON.stringify({colorTheme:parseInt(theme,10),colorReverse:reverse}));' +
     '});' +
     '</script></main></body></html>';
 }
@@ -153,6 +164,11 @@ Pebble.addEventListener('webviewclosed', function(e) {
     var settings = JSON.parse(decodeURIComponent(e.response));
     if (typeof settings.colorTheme === 'number') {
       localStorage.setItem(THEME_KEY, settings.colorTheme);
+    }
+    if (typeof settings.colorReverse === 'boolean') {
+      localStorage.setItem(REVERSE_KEY, settings.colorReverse ? '1' : '0');
+    }
+    if (typeof settings.colorTheme === 'number' || typeof settings.colorReverse === 'boolean') {
       sendTheme();
     }
   } catch (err) {
